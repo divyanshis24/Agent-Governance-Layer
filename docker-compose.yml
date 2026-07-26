@@ -1,0 +1,60 @@
+# The full production-shaped stack: Redis for hot-path counters, PostgreSQL for
+# durable records, OPA as the policy sidecar, the gateway, and the console.
+#
+#   docker compose up --build      → console on http://localhost:8000
+#
+# Without Docker the same stack runs natively via ./run.sh, which falls back to
+# an in-process state store and SQLite.
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: aegis
+      POSTGRES_DB: aegis
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # The Policy Decision Point. Runs as a sidecar so evaluation is a loopback
+  # call rather than a network hop.
+  opa:
+    image: openpolicyagent/opa:latest
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "/policies/aegis.rego"]
+    volumes: ["./backend/policies:/policies:ro"]
+    ports: ["8181:8181"]
+
+  aegis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://aegis:aegis@postgres:5432/aegis
+      # Switch to `opa` to route the permission gate through the sidecar.
+      POLICY_ENGINE: rules
+      OPA_URL: http://opa:8181
+      HOST: 0.0.0.0
+      PORT: 8000
+      DEMO_MODE: "true"
+    ports: ["8000:8000"]
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+
+volumes:
+  pgdata:
