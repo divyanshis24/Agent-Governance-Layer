@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-navy-950 text-ink font-sans antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-navy-700 rounded-full;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-navy-850 border border-navy-750 rounded-xl;
+  }
+
+  .panel-header {
+    @apply px-5 py-4 border-b border-navy-750;
+  }
+
+  .label {
+    @apply text-[10px] font-semibold tracking-[0.14em] uppercase text-ink-dim;
+  }
+
+  .pill {
+    @apply inline-flex items-center rounded px-2 py-[3px] text-[10px] font-bold tracking-wider uppercase;
+  }
+
+  .btn {
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+           border border-navy-700 bg-navy-800 hover:bg-navy-750 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply border-accent-soft bg-accent/90 hover:bg-accent text-white;
+  }
+
+  .btn-danger {
+    @apply border-bad/40 bg-bad/90 hover:bg-bad text-white;
+  }
+
+  .field {
+    @apply bg-navy-900 border border-navy-700 rounded-lg px-3 py-2 text-sm text-ink
+           focus:outline-none focus:border-accent w-full;
+  }
+
+  .row-hover {
+    @apply hover:bg-navy-800/60 transition-colors;
+  }
+}

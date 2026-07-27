@@ -1,0 +1,15 @@
+# Aegis control plane — backend dependencies
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+httpx==0.28.1
+websockets==14.1
+
+# Optional production backends. The control plane runs without them
+# (in-process state store + SQLite); set REDIS_URL / DATABASE_URL to enable.
+redis==5.2.1
+psycopg[binary]>=3.2.4
+
+# Dev / test
+pytest==8.3.4
+pytest-asyncio==0.25.0
