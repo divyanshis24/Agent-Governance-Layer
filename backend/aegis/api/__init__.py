@@ -1,4 +1,4 @@
-from . import approvals, audit_api, authorize, fleet, policies, sim, stream
+from . import approvals, audit_api, authorize, fleet, metrics_api, policies, sim, stream
 
 ROUTERS = [
     authorize.router,
@@ -8,6 +8,7 @@ ROUTERS = [
     approvals.router,
     stream.router,
     sim.router,
+    metrics_api.router,
 ]
 
 __all__ = ["ROUTERS"]

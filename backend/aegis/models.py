@@ -55,6 +55,11 @@ class ReasonCode(str, Enum):
     HUMAN_APPROVAL_REQUIRED = "human_approval_required"
     APPROVAL_PENDING = "approval_pending"
     APPROVAL_REJECTED = "approval_rejected"
+    # idempotency
+    IDEMPOTENCY_CONFLICT = "idempotency_conflict"
+    # infrastructure
+    POLICY_UNAVAILABLE = "policy_unavailable"
+    STATE_UNAVAILABLE = "state_unavailable"
     # allow
     WITHIN_POLICY = "within_policy"
     HUMAN_APPROVED = "human_approved"
@@ -85,6 +90,9 @@ REASON_TEXT: dict[str, str] = {
     ReasonCode.HUMAN_APPROVAL_REQUIRED: "sent for human approval",
     ReasonCode.APPROVAL_PENDING: "awaiting human approval",
     ReasonCode.APPROVAL_REJECTED: "rejected by human reviewer",
+    ReasonCode.IDEMPOTENCY_CONFLICT: "idempotency key reused with a different payload",
+    ReasonCode.POLICY_UNAVAILABLE: "policy engine unavailable — fail-closed",
+    ReasonCode.STATE_UNAVAILABLE: "state store unavailable — fail-closed",
     ReasonCode.WITHIN_POLICY: "within policy",
     ReasonCode.HUMAN_APPROVED: "approved by human reviewer",
 }
@@ -121,6 +129,9 @@ class AuthorizeRequest(BaseModel):
     #: signed off, so the retry clears the human-in-the-loop gate.
     approval_id: str | None = None
     idempotency_key: str | None = None
+    #: Proxy mode reserves budget at authorize time and settles after the bank
+    #: returns the actual amount (SpendGuard-style reserve → execute → settle).
+    defer_settlement: bool = False
     request_id: str = Field(default_factory=lambda: f"req_{uuid.uuid4().hex[:12]}")
 
 

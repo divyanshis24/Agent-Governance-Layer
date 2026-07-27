@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The five-beat demo, run against a live Agent Governance Layer control plane.
+"""The eight-beat demo, run against a live Aegis control plane.
 
     python demo/demo_scenario.py            # narrated, paced for a walkthrough
     python demo/demo_scenario.py --fast     # no pauses
@@ -55,15 +55,15 @@ async def main(fast: bool) -> int:
         try:
             await admin.get("/health")
         except Exception:
-            print(f"{RED}Agent Governance Layer is not running at {BASE}. Start it with ./run.sh{RESET}")
+            print(f"{RED}Aegis is not running at {BASE}. Start it with ./run.sh{RESET}")
             return 1
 
         # A clean slate for the fleet controls the demo touches.
         await admin.post("/v1/fleet/resume")
         await admin.post("/v1/agents/onboarding_bot/revoke", json={"reason": "anomalous credit-limit raise pattern"})
 
-        print(f"\n{BOLD}AGENT GOVERNANCE LAYER — safety infrastructure for financial AI agents{RESET}")
-        print(f"{DIM}Five beats. Every one of them a real decision, logged and provable.{RESET}")
+        print(f"\n{BOLD}AEGIS — governance layer for financial AI agents{RESET}")
+        print(f"{DIM}Eight beats. Every one of them a real decision, logged and provable.{RESET}")
 
         svc = AegisClient(BASE, agent_id="svc_agent")
         benefits = AegisClient(BASE, agent_id="benefits_engine")
@@ -75,6 +75,25 @@ async def main(fast: bool) -> int:
                    "Inside the servicing agent's permissions and well under its caps.")
         show(await svc.authorize("issue_refund", amount_cents=2_500, resource="txn #8841",
                                  counterparty="cardmember account"))
+        print(f"  {DIM}same reversal via proxy mode — Aegis calls the bank, not the agent:{RESET}")
+        proxy = await svc.execute(
+            "issue_refund",
+            amount_cents=2_500,
+            resource="txn #8841-proxy",
+            counterparty="cardmember account",
+            idempotency_key="demo-refund-proxy",
+        )
+        if proxy.get("executed"):
+            txn = (proxy.get("result") or {}).get("settlement_id", (proxy.get("result") or {}).get("ref", "ok"))
+            settled = (proxy.get("settlement") or {}).get("settled_cents", proxy.get("result", {}).get("amount_cents"))
+            reserved = (proxy.get("settlement") or {}).get("reserved_cents", 2_500)
+            print(
+                f"  {GREEN}{BOLD}PROXY OK   {RESET}{DIM}reserved ${reserved / 100:.2f} · "
+                f"settled ${settled / 100:.2f} · {txn}{RESET}"
+            )
+        else:
+            auth = proxy.get("authorization") or {}
+            print(f"  {RED}{BOLD}PROXY DENY {RESET}{auth.get('reason', '')}{RESET}")
         await asyncio.sleep(PAUSE)
 
         # ---------------------------------------------------------------
@@ -118,6 +137,54 @@ async def main(fast: bool) -> int:
         print(f"\n  {DIM}controlled resume…{RESET}")
         await admin.post("/v1/fleet/resume")
         show(await svc.authorize("issue_refund", amount_cents=1_000, counterparty="cardmember account"))
+
+        # ---------------------------------------------------------------
+        await beat(6, "Twenty parallel $50 waivers against a $500 cap",
+                   "Atomic reserves — exactly ten succeed, ten are blocked.")
+        await admin.post("/v1/simulator/reset-counters")
+        await admin.patch(
+            "/v1/policies/svc_agent",
+            json={"spend": {"daily_cap_cents": 50_000, "payment_rate_per_min": 1_000}},
+        )
+        tasks = [
+            svc.authorize(
+                "issue_refund",
+                amount_cents=5_000,
+                counterparty="cardmember account",
+                idempotency_key=f"concurrency-{i}",
+            )
+            for i in range(20)
+        ]
+        results = await asyncio.gather(*tasks)
+        allowed = sum(1 for r in results if r.allowed)
+        blocked = sum(1 for r in results if not r.allowed)
+        print(f"  {GREEN}{allowed} ALLOW{RESET}  {RED}{blocked} BLOCK{RESET}  {DIM}cap $500 · $50 each{RESET}")
+        await asyncio.sleep(PAUSE)
+
+        # ---------------------------------------------------------------
+        await beat(7, "Policy engine goes down — the gateway fails closed",
+                   "No silent fallback. The next request is denied, not allowed.")
+        await admin.post("/v1/simulator/chaos/policy-down")
+        show(await svc.authorize("issue_refund", amount_cents=500, counterparty="cardmember account"))
+        await admin.post("/v1/simulator/chaos/policy-up")
+        await asyncio.sleep(PAUSE)
+
+        # ---------------------------------------------------------------
+        await beat(8, "A retried request with the same idempotency key is safe",
+                   "Same decision returned — budget charged once.")
+        key = "demo-idempotency-retry"
+        first = await svc.authorize(
+            "issue_refund", amount_cents=1_500, counterparty="cardmember account", idempotency_key=key
+        )
+        second = await svc.authorize(
+            "issue_refund", amount_cents=1_500, counterparty="cardmember account", idempotency_key=key
+        )
+        replay = "idempotent replay" if second.obligations.get("idempotent_replay") else "cached"
+        print(
+            f"  {GREEN}{BOLD}ALLOW      {RESET}{DIM}first audit #{first.audit_seq} · "
+            f"retry {replay} · audit #{second.audit_seq}{RESET}"
+        )
+        await asyncio.sleep(PAUSE)
 
         # ---------------------------------------------------------------
         print(f"\n{BOLD}{BLUE}CLOSING{RESET}  {BOLD}The audit log{RESET}")

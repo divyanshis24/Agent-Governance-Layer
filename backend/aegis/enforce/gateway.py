@@ -22,10 +22,13 @@ Two properties are worth calling out:
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 
 from ..audit import AuditChain
+from ..idempotency import deserialize_response, request_fingerprint, serialize_response
+from ..metrics import metrics
 from ..models import (
     REASON_TEXT,
     Agent,
@@ -84,7 +87,11 @@ class Gateway:
         #: Hot caches — the decision path must not hit the database.
         self._agents: dict[str, Agent] = {}
         self._policies: dict[str, AgentPolicy] = {}
+        self._idempotency_locks: dict[tuple[str, str], asyncio.Lock] = {}
         self.guardrails = GuardrailSuite()
+        #: Demo / chaos hooks — simulate infrastructure failure without stopping containers.
+        self.chaos_policy_down = False
+        self.chaos_state_down = False
 
     # --- cache management --------------------------------------------------
     async def refresh(self) -> None:
@@ -116,10 +123,69 @@ class Gateway:
         return self._policies
 
     # --- the decision path -------------------------------------------------
+    def _idempotency_mutex(self, agent_id: str, key: str) -> asyncio.Lock:
+        pair = (agent_id, key)
+        lock = self._idempotency_locks.get(pair)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._idempotency_locks[pair] = lock
+        return lock
+
     async def authorize(self, request: AuthorizeRequest) -> AuthorizeResponse:
+        if not request.idempotency_key:
+            return await self._authorize_once(request)
+
+        async with self._idempotency_mutex(request.agent_id, request.idempotency_key):
+            cached = await self._idempotency_lookup(request)
+            if cached is not None:
+                return cached
+
+            response = await self._authorize_once(request)
+            await self.repo.save_idempotency(
+                request.agent_id,
+                request.idempotency_key,
+                request_fingerprint(request),
+                serialize_response(response),
+            )
+            return response
+
+    async def _idempotency_lookup(self, request: AuthorizeRequest) -> AuthorizeResponse | None:
+        row = await self.repo.get_idempotency(request.agent_id, request.idempotency_key)
+        if row is None:
+            return None
+        fingerprint = request_fingerprint(request)
+        if row["request_hash"] != fingerprint:
+            t = _Timer()
+            agent = self._agents.get(request.agent_id)
+            return await self._finalize(
+                request,
+                agent,
+                Decision.DENY,
+                ReasonCode.IDEMPOTENCY_CONFLICT,
+                t,
+                detail="idempotency key already used for a different action",
+            )
+        response = deserialize_response(row["response_json"])
+        response.obligations = {**response.obligations, "idempotent_replay": True}
+        return response
+
+    async def _authorize_once(self, request: AuthorizeRequest) -> AuthorizeResponse:
         t = _Timer()
         agent = self._agents.get(request.agent_id)
         policy = self._policies.get(request.agent_id)
+
+        if self.chaos_policy_down:
+            t.gate("policy_engine", False, "simulated outage")
+            return await self._finalize(
+                request, agent, Decision.DENY, ReasonCode.POLICY_UNAVAILABLE, t,
+                detail="policy engine unavailable — fail-closed",
+            )
+        if self.chaos_state_down:
+            t.gate("state_store", False, "simulated outage")
+            return await self._finalize(
+                request, agent, Decision.DENY, ReasonCode.STATE_UNAVAILABLE, t,
+                detail="state store unavailable — fail-closed",
+            )
 
         # -- gate 0: identity ------------------------------------------------
         if agent is None:
@@ -204,27 +270,59 @@ class Gateway:
         else:
             t.gate("human_approval", True, "not required")
 
-        # -- gate 6: atomic commit, then allow -------------------------------
-        commit = await self.state.try_commit(request.agent_id, request.amount_cents, payment, limits)
+        # -- gate 6: atomic reserve, then allow ------------------------------
+        commit = await self.state.try_reserve(
+            request.agent_id, request.request_id, request.amount_cents, payment, limits
+        )
         if not commit.ok:
             # Lost a race against a concurrent request for the same budget.
             t.gate("commit", False, commit.detail)
             return await self._finalize(request, agent, Decision.BLOCK, commit.reason_code, t, detail=commit.detail)
-        t.gate("commit", True)
+        t.gate("commit", True, "reserved")
 
+        settlement: dict[str, int] = {}
         if request.amount_cents > 0:
-            await self.repo.add_ledger(
-                f"led_{uuid.uuid4().hex[:12]}",
-                request.agent_id,
-                request.action,
-                request.amount_cents,
-                request.counterparty,
-                request.request_id,
-            )
+            if request.defer_settlement:
+                settlement["reserved_cents"] = request.amount_cents
+            else:
+                released = await self.state.settle(request.agent_id, request.request_id, request.amount_cents)
+                settlement["reserved_cents"] = request.amount_cents
+                settlement["settled_cents"] = request.amount_cents
+                if released:
+                    settlement["released_cents"] = released
+                await self.repo.add_ledger(
+                    f"led_{uuid.uuid4().hex[:12]}",
+                    request.agent_id,
+                    request.action,
+                    request.amount_cents,
+                    request.counterparty,
+                    request.request_id,
+                )
+
+        if settlement:
+            obligations = {**obligations, **{k: v for k, v in settlement.items()}}
 
         reason_code = ReasonCode.HUMAN_APPROVED if approved_by else ReasonCode.WITHIN_POLICY
         return await self._finalize(request, agent, Decision.ALLOW, reason_code, t,
                                     obligations=obligations, policy_version=policy.version)
+
+    async def complete_settlement(self, request: AuthorizeRequest, actual_cents: int) -> dict:
+        """Proxy path: bank returned — capture actual cost and release any over-reservation."""
+        released = await self.state.settle(request.agent_id, request.request_id, actual_cents)
+        if actual_cents > 0:
+            await self.repo.add_ledger(
+                f"led_{uuid.uuid4().hex[:12]}",
+                request.agent_id,
+                request.action,
+                actual_cents,
+                request.counterparty,
+                request.request_id,
+            )
+        return {
+            "reserved_cents": request.amount_cents,
+            "settled_cents": actual_cents,
+            "released_cents": released,
+        }
 
     # --- human approval ----------------------------------------------------
     async def _check_approval(self, request: AuthorizeRequest) -> tuple[bool, str | None, str | None]:
@@ -349,4 +447,5 @@ class Gateway:
                 "request_id": request.request_id,
             },
         )
+        metrics.record(decision.value, latency)
         return response

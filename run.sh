@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Agent Governance Layer — one command to bring up the control plane and console.
+# Aegis — one command to bring up the control plane and the operator console.
 #
 #   ./run.sh          control plane + console (dev, hot reload)
 #   ./run.sh --build   build the console and serve everything from :8000
@@ -13,8 +13,8 @@ BACKEND_PORT="${PORT:-8000}"
 FRONTEND_PORT=5173
 MODE="${1:-dev}"
 
-info() { printf "\033[36m[agl]\033[0m %s\n" "$1"; }
-fail() { printf "\033[31m[agl]\033[0m %s\n" "$1"; exit 1; }
+info() { printf "\033[36m[aegis]\033[0m %s\n" "$1"; }
+fail() { printf "\033[31m[aegis]\033[0m %s\n" "$1"; exit 1; }
 
 command -v python3 >/dev/null || fail "python3 is required"
 command -v node >/dev/null || fail "node is required"

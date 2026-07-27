@@ -19,10 +19,18 @@ from .rules import RulesEngine
 class OpaEngine(PolicyDecisionPoint):
     name = "opa"
 
-    def __init__(self, url: str, decision_path: str, fallback: PolicyDecisionPoint | None = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        decision_path: str,
+        fallback: PolicyDecisionPoint | None = None,
+        *,
+        fail_closed: bool = False,
+    ) -> None:
         self.url = url.rstrip("/")
         self.decision_path = decision_path.strip("/")
-        self.fallback = fallback or RulesEngine()
+        self.fallback = fallback
+        self.fail_closed = fail_closed
         self._client: httpx.AsyncClient | None = None
 
     async def start(self) -> None:
@@ -53,13 +61,14 @@ class OpaEngine(PolicyDecisionPoint):
             resp.raise_for_status()
             result = resp.json().get("result") or {}
         except Exception as exc:
-            # Fail closed on the permission gate rather than silently allowing.
-            return PermissionVerdict(
-                False,
-                ReasonCode.ACTION_NOT_PERMITTED,
-                f"policy engine unavailable: {exc}",
-                engine=self.name,
-            )
+            if self.fail_closed or self.fallback is None:
+                return PermissionVerdict(
+                    False,
+                    ReasonCode.POLICY_UNAVAILABLE,
+                    f"policy engine unavailable: {exc}",
+                    engine=self.name,
+                )
+            return await self.fallback.evaluate(request, policy)
 
         if result.get("allow"):
             return PermissionVerdict(

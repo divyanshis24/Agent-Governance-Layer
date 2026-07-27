@@ -1,11 +1,7 @@
-# Agent Governance Layer
-
-Safety infrastructure that lets a bank deploy fleets of autonomous AI agents
-responsibly: granular per-agent permissions, dynamic spend caps, real-time
-revocation, a tamper-evident action log, and a fleet-wide emergency stop.
+# Aegis — Governance Layer for Financial AI Agents
 
 A working control plane that sits in the action path of every agent. Before any
-consequential action executes, the agent must get authorization from the layer:
+consequential action executes, the agent must get authorization from Aegis:
 the fleet must not be halted, the agent must not be revoked, the action must be
 in a deny-by-default permission set, it must fit inside spend and velocity
 limits, it must clear data, counterparty and AI-safety guardrails, and if it is
@@ -14,12 +10,14 @@ allow, deny, block, quarantine, escalate — is sealed into a hash-chained audit
 log.
 
 > **What is real here:** the decisions. Agents are stub agents and the banking
-> systems behind them are simulated, so the layer governs real policy over
-> synthetic data. No real money moves.
+> systems behind them are simulated, so Aegis governs real policy over synthetic
+> data. No real money moves.
 
 ---
 
 ## Run it
+
+**Requires Python 3.11+** (the backend uses modern typing syntax).
 
 ```bash
 ./run.sh
@@ -32,15 +30,16 @@ run creates a virtualenv, installs the console's dependencies, and starts both
 processes. Then, in a second terminal:
 
 ```bash
-python demo/demo_scenario.py        # the five-beat walkthrough
+python3 demo/demo_scenario.py        # the eight-beat walkthrough
+# or: ./demo/run_demo.sh --fast      # picks backend/.venv Python automatically
 ```
 
 Other entry points:
 
 ```bash
 ./run.sh --build                    # build the console, serve everything from :8000
-cd backend && .venv/bin/python -m pytest -q     # 54 tests
-docker compose up --build           # full stack: Redis + PostgreSQL + OPA sidecar
+cd backend && .venv/bin/python -m pytest -q     # 66 tests
+docker compose up --build           # full stack: Redis + PostgreSQL + OPA + Prometheus + Grafana
 ```
 
 ---
@@ -123,7 +122,7 @@ else:
     log(decision.reason)          # "over per-transaction cap — $4,000.00 over $2,500.00 cap"
 ```
 
-**Proxy mode** — the layer makes the downstream call itself, so the agent never
+**Proxy mode** — Aegis makes the downstream call itself, so the agent never
 holds a path to the money. This is what turns "should not bypass" into "cannot":
 
 ```python
@@ -133,6 +132,20 @@ result = await aegis.execute("issue_refund", amount_cents=25_00,
 
 If the control plane is unreachable the client **fails closed** — it refuses the
 action rather than proceeding ungoverned.
+
+Pass an `idempotency_key` on retries so a network timeout cannot double-spend:
+the gateway returns the cached decision without moving counters again.
+
+**Reserve → settle** — proxy mode reserves the maximum amount atomically, calls the
+bank, then settles the actual cost and releases any over-reservation (SpendGuard-style).
+
+**Fail-closed** — set `FAIL_CLOSED=true` with Redis/PostgreSQL configured so the
+gateway refuses requests when infrastructure is down instead of falling back silently.
+The demo can simulate this with `POST /v1/simulator/chaos/policy-down`.
+
+**Observability** — `GET /metrics` exposes Prometheus counters and latency
+summaries; `GET /v1/metrics/summary` returns the same numbers as JSON.
+With Docker Compose, Grafana is on http://localhost:3000 (admin / aegis).
 
 ---
 
@@ -164,7 +177,7 @@ Run `cd backend && .venv/bin/python -m pytest -q -s` to reproduce.
 | Policy decision latency | < 10 ms p99 | **0.15 ms p99**, 0.08 ms median |
 | Throughput | — | ~8,800 decisions/sec (single process) |
 | Time to contain | < 1 s | **~4 ms** to halt the fleet |
-| Enforcement accuracy | 100% | 54/54 tests, every gate covered |
+| Enforcement accuracy | 100% | 66/66 tests, every gate covered |
 | Audit completeness | one entry per action | asserted, including operator actions |
 | Chain integrity | tampering detected | edits, deletions and amount changes all caught |
 
@@ -184,8 +197,8 @@ Everything runs with no configuration. Set these to scale it up:
 | `SEED_ON_START` | `true` | Seeds the six-agent demo fleet if none exists |
 
 The storage and policy layers sit behind interfaces and fall back rather than
-fail: if Redis or PostgreSQL is configured but unreachable, it is logged and
-the in-process store takes over, and the ~100-line in-house evaluator is
+fail: if Redis or PostgreSQL is configured but unreachable, Aegis logs it and
+continues on the in-process store, and the ~100-line in-house evaluator is
 always available if OPA is not.
 
 ---

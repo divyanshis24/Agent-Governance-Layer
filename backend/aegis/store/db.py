@@ -91,6 +91,14 @@ SCHEMA = [
         k TEXT PRIMARY KEY,
         v TEXT NOT NULL
     )""",
+    """CREATE TABLE IF NOT EXISTS idempotency (
+        agent_id TEXT NOT NULL,
+        idempotency_key TEXT NOT NULL,
+        request_hash TEXT NOT NULL,
+        response_json TEXT NOT NULL,
+        created_at DOUBLE PRECISION NOT NULL,
+        PRIMARY KEY (agent_id, idempotency_key)
+    )""",
     "CREATE INDEX IF NOT EXISTS idx_audit_agent ON audit (agent_id, seq)",
     "CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit (ts)",
     "CREATE INDEX IF NOT EXISTS idx_ledger_agent ON ledger (agent_id, ts)",
@@ -166,7 +174,16 @@ class Repository:
             await self.execute(stmt)
 
     async def reset(self) -> None:
-        for table in ("audit", "ledger", "approvals", "policies", "agents", "operator_events", "kv"):
+        for table in (
+            "audit",
+            "ledger",
+            "approvals",
+            "policies",
+            "agents",
+            "operator_events",
+            "kv",
+            "idempotency",
+        ):
             await self.execute(f"DELETE FROM {table}")
 
     # --- small config values ----------------------------------------------
@@ -372,6 +389,23 @@ class Repository:
     async def list_operator_events(self, limit: int = 50) -> list[dict]:
         return await self.query("SELECT * FROM operator_events ORDER BY ts DESC LIMIT ?", (limit,))
 
+    # --- idempotency -------------------------------------------------------
+    async def get_idempotency(self, agent_id: str, idempotency_key: str) -> dict | None:
+        return await self.one(
+            "SELECT request_hash, response_json FROM idempotency WHERE agent_id = ? AND idempotency_key = ?",
+            (agent_id, idempotency_key),
+        )
+
+    async def save_idempotency(
+        self, agent_id: str, idempotency_key: str, request_hash: str, response_json: str
+    ) -> None:
+        await self.execute(
+            """INSERT INTO idempotency (agent_id, idempotency_key, request_hash, response_json, created_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT (agent_id, idempotency_key) DO NOTHING""",
+            (agent_id, idempotency_key, request_hash, response_json, time.time()),
+        )
+
 
 def _audit_from_row(r: dict) -> AuditEntry:
     return AuditEntry(
@@ -393,13 +427,15 @@ def _audit_from_row(r: dict) -> AuditEntry:
     )
 
 
-async def open_repository(url: str) -> Repository:
-    """Prefer the configured database; fall back to SQLite rather than fail."""
+async def open_repository(url: str, *, fail_closed: bool = False) -> Repository:
+    """Prefer the configured database. Fail closed if required but unreachable."""
     try:
         return await Repository(url).connect()
-    except Exception as exc:  # pragma: no cover - depends on environment
+    except Exception as exc:
         if url.startswith("sqlite"):
             raise
+        if fail_closed:
+            raise RuntimeError(f"Database required but unavailable: {exc}") from exc
         print(f"[aegis] {url.split('://')[0]} unavailable ({exc}); falling back to SQLite")
         from ..config import BASE_DIR
 

@@ -1,6 +1,6 @@
 """Runtime configuration.
 
-The Agent Governance Layer runs in two modes with the same code path:
+Aegis runs in two modes with the same code path:
 
   * zero-infra (default) — in-process state store + SQLite. One command, no daemons.
   * production          — set REDIS_URL and/or DATABASE_URL and the same interfaces
@@ -53,6 +53,8 @@ class Settings:
     seed_on_start: bool = field(default_factory=lambda: _env_bool("SEED_ON_START", True))
     reset_on_start: bool = field(default_factory=lambda: _env_bool("RESET_ON_START", False))
     audit_async: bool = field(default_factory=lambda: _env_bool("AUDIT_ASYNC", True))
+    #: When true, configured Redis/PostgreSQL must be reachable — no silent fallback.
+    fail_closed: bool = field(default_factory=lambda: _env_bool("FAIL_CLOSED", False))
 
     # --- server ------------------------------------------------------------
     host: str = field(default_factory=lambda: os.getenv("HOST", "127.0.0.1"))

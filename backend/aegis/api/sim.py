@@ -42,3 +42,29 @@ async def reset_counters(control=Depends(get_control)) -> dict:
     """
     await control.state.reset_counters()
     return await control.stats()
+
+
+@router.post("/chaos/policy-down")
+async def chaos_policy_down(control=Depends(get_control)) -> dict:
+    """Simulate OPA/policy engine outage — every request fails closed."""
+    control.gateway.chaos_policy_down = True
+    return {"policy_engine": "simulated_down", "fail_closed": True}
+
+
+@router.post("/chaos/policy-up")
+async def chaos_policy_up(control=Depends(get_control)) -> dict:
+    control.gateway.chaos_policy_down = False
+    return {"policy_engine": "restored", "fail_closed": False}
+
+
+@router.post("/chaos/state-down")
+async def chaos_state_down(control=Depends(get_control)) -> dict:
+    """Simulate Redis/state store outage — every request fails closed."""
+    control.gateway.chaos_state_down = True
+    return {"state_store": "simulated_down", "fail_closed": True}
+
+
+@router.post("/chaos/state-up")
+async def chaos_state_up(control=Depends(get_control)) -> dict:
+    control.gateway.chaos_state_down = False
+    return {"state_store": "restored", "fail_closed": False}

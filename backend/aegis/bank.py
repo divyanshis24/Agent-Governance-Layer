@@ -1,11 +1,11 @@
 """Simulated core banking and external tools.
 
 Stands in for money movement, card systems, customer data and partner APIs.
-Nothing here is real, and that is the point: the layer makes *real* decisions
-over synthetic systems, so the governance is what is being demonstrated.
+Nothing here is real, and that is the point: Aegis makes *real* decisions over
+synthetic systems, so the governance layer is what is being demonstrated.
 
 In production these are the systems that sit behind the gateway; in proxy mode
-the gateway is the only caller, which is what makes the checkpoint unbypassable.
+Aegis is the only caller, which is what makes the checkpoint unbypassable.
 """
 
 from __future__ import annotations
@@ -57,11 +57,15 @@ class CoreBanking:
             return {"system": "customer data", "record": {k: str(v) for k, v in record.items()}, "ref": ref}
 
         if amount > 0:
+            actual = amount
+            if request.context.metadata.get("settle_actual_cents") is not None:
+                actual = int(request.context.metadata["settle_actual_cents"])
             return {
                 "system": "money movement",
                 "ref": ref,
                 "status": "settled",
-                "amount_cents": amount,
+                "amount_cents": actual,
+                "reserved_cents": amount,
                 "counterparty": request.counterparty,
                 "settlement_id": f"stl_{uuid.uuid4().hex[:12]}",
                 "network_latency_ms": round(random.uniform(40, 120), 1),

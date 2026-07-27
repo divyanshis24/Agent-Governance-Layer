@@ -1,7 +1,7 @@
 """The two ways an agent integrates.
 
   * POST /v1/authorize — SDK mode. The agent asks first, then acts.
-  * POST /v1/proxy     — proxy mode. The layer makes the downstream call, so
+  * POST /v1/proxy     — proxy mode. Aegis makes the downstream call itself, so
                          the agent never holds a path to the money. This is the
                          mode that turns "should not bypass" into "cannot".
 """
@@ -32,7 +32,8 @@ async def authorize_batch(requests: list[AuthorizeRequest], control=Depends(get_
 @router.post("/proxy")
 async def proxy(request: AuthorizeRequest, control=Depends(get_control)) -> dict:
     """Authorize, then execute against the core banking systems on the agent's behalf."""
-    decision: AuthorizeResponse = await control.gateway.authorize(request)
+    proxy_request = request.model_copy(update={"defer_settlement": True})
+    decision: AuthorizeResponse = await control.gateway.authorize(proxy_request)
     if decision.decision != Decision.ALLOW:
         return {
             "executed": False,
@@ -40,16 +41,33 @@ async def proxy(request: AuthorizeRequest, control=Depends(get_control)) -> dict
             "result": None,
         }
 
-    result = await CoreBanking.execute(request)
+    try:
+        result = await CoreBanking.execute(request)
+    except Exception as exc:
+        await control.gateway.state.release(request.agent_id, request.request_id)
+        return {
+            "executed": False,
+            "authorization": decision.model_dump(mode="json"),
+            "result": None,
+            "error": str(exc),
+        }
+
+    actual_cents = int(result.get("amount_cents", request.amount_cents))
+    settlement = await control.gateway.complete_settlement(request, actual_cents)
 
     # Mask on the way *out*, not just on what the request declared. A response
-    # can carry PAN/SSN the agent never asked for, and in proxy mode the gateway
-    # is the last thing that touches the payload before the agent sees it.
+    # can carry PAN/SSN the agent never asked for, and in proxy mode Aegis is
+    # the last thing that touches the payload before the agent sees it.
     policy = control.gateway.policy(request.agent_id)
     if (policy and policy.guardrails.mask_pan_ssn) or decision.obligations.get("mask_fields"):
         result = _apply_masking(result)
 
-    return {"executed": True, "authorization": decision.model_dump(mode="json"), "result": result}
+    return {
+        "executed": True,
+        "authorization": decision.model_dump(mode="json"),
+        "result": result,
+        "settlement": settlement,
+    }
 
 
 def _apply_masking(value):

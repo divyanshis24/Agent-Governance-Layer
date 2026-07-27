@@ -15,7 +15,12 @@ from .rules import (
 def build_pdp() -> PolicyDecisionPoint:
     """Select the policy engine named by POLICY_ENGINE."""
     if settings.policy_engine.lower() == "opa":
-        return OpaEngine(settings.opa_url, settings.opa_decision_path, fallback=RulesEngine())
+        return OpaEngine(
+            settings.opa_url,
+            settings.opa_decision_path,
+            fallback=None if settings.fail_closed else RulesEngine(),
+            fail_closed=settings.fail_closed,
+        )
     return RulesEngine()
 
 

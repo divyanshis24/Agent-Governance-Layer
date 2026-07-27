@@ -53,8 +53,8 @@ class ControlPlane:
 
     # --- lifecycle ---------------------------------------------------------
     async def start(self) -> None:
-        self.repo = await open_repository(self.settings.database_url)
-        self.state = await open_state_store(self.settings.redis_url)
+        self.repo = await open_repository(self.settings.database_url, fail_closed=self.settings.fail_closed)
+        self.state = await open_state_store(self.settings.redis_url, fail_closed=self.settings.fail_closed)
 
         if self.settings.reset_on_start:
             await self.repo.reset()

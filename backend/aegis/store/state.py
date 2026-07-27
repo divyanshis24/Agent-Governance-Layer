@@ -129,6 +129,26 @@ class StateStore(ABC):
     @abstractmethod
     async def try_commit(self, agent_id: str, amount: int, is_payment: bool, limits: Limits) -> CommitOutcome: ...
 
+    async def try_reserve(
+        self, agent_id: str, request_id: str, amount: int, is_payment: bool, limits: Limits
+    ) -> CommitOutcome:
+        """Atomically hold budget (reserve). Tracked by request_id for settle/release."""
+        outcome = await self.try_commit(agent_id, amount, is_payment, limits)
+        if outcome.ok:
+            await self._track_reservation(agent_id, request_id, amount)
+        return outcome
+
+    @abstractmethod
+    async def _track_reservation(self, agent_id: str, request_id: str, amount: int) -> None: ...
+
+    @abstractmethod
+    async def settle(self, agent_id: str, request_id: str, actual_cents: int) -> int:
+        """Capture the actual cost and release any over-reservation. Returns cents released."""
+
+    @abstractmethod
+    async def release(self, agent_id: str, request_id: str) -> int:
+        """Release a full reservation (e.g. downstream failure). Returns cents released."""
+
     @abstractmethod
     async def record_outcome(self, agent_id: str, allowed: bool) -> None: ...
 
@@ -173,6 +193,7 @@ class MemoryStateStore(StateStore):
         self._actions_today: dict[str, int] = {}
         self._blocked_today: dict[str, int] = {}
         self._last_action: dict[str, float] = {}
+        self._reservations: dict[str, tuple[str, int]] = {}
 
     async def get_halt(self) -> dict | None:
         return self._halt
@@ -233,6 +254,40 @@ class MemoryStateStore(StateStore):
                 self._pay_rate[pk] = pays + 1
             return CommitOutcome(ok=True, counters=await self.counters(agent_id))
 
+    async def _track_reservation(self, agent_id: str, request_id: str, amount: int) -> None:
+        if amount > 0:
+            self._reservations[request_id] = (agent_id, amount)
+
+    def _refund(self, agent_id: str, refund: int) -> None:
+        if refund <= 0:
+            return
+        sk, dk, *_ = self._keys(agent_id)
+        self._spend[sk] = max(0, self._spend.get(sk, 0) - refund)
+        self._fleet_spend[dk] = max(0, self._fleet_spend.get(dk, 0) - refund)
+
+    async def settle(self, agent_id: str, request_id: str, actual_cents: int) -> int:
+        async with self._lock:
+            reserved_entry = self._reservations.pop(request_id, None)
+            if reserved_entry is None:
+                return 0
+            reserved_agent, reserved = reserved_entry
+            if reserved_agent != agent_id:
+                return 0
+            refund = max(reserved - max(actual_cents, 0), 0)
+            self._refund(agent_id, refund)
+            return refund
+
+    async def release(self, agent_id: str, request_id: str) -> int:
+        async with self._lock:
+            reserved_entry = self._reservations.pop(request_id, None)
+            if reserved_entry is None:
+                return 0
+            reserved_agent, reserved = reserved_entry
+            if reserved_agent != agent_id:
+                return 0
+            self._refund(agent_id, reserved)
+            return reserved
+
     async def record_outcome(self, agent_id: str, allowed: bool) -> None:
         sk, *_ = self._keys(agent_id)
         self._actions_today[sk] = self._actions_today.get(sk, 0) + 1
@@ -255,6 +310,7 @@ class MemoryStateStore(StateStore):
             self._actions_today.clear()
             self._blocked_today.clear()
             self._last_action.clear()
+            self._reservations.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +360,15 @@ end
 return {'ok', ''}
 """
 
+REFUND_LUA = """
+local refund = tonumber(ARGV[1])
+if refund > 0 then
+  redis.call('DECRBY', KEYS[1], refund)
+  redis.call('DECRBY', KEYS[2], refund)
+end
+return refund
+"""
+
 
 class RedisStateStore(StateStore):
     def __init__(self, url: str) -> None:
@@ -317,6 +382,7 @@ class RedisStateStore(StateStore):
         self._redis = aioredis.from_url(self.url, decode_responses=True)
         await self._redis.ping()
         self._commit = self._redis.register_script(COMMIT_LUA)
+        self._refund = self._redis.register_script(REFUND_LUA)
 
     async def close(self) -> None:
         if self._redis is not None:
@@ -393,6 +459,34 @@ class RedisStateStore(StateStore):
             return CommitOutcome(ok=True, counters=await self.counters(agent_id))
         return CommitOutcome(ok=False, reason_code=ReasonCode(code), detail=None)
 
+    async def _track_reservation(self, agent_id: str, request_id: str, amount: int) -> None:
+        if amount > 0:
+            await self._redis.set(f"aegis:resv:{request_id}", f"{agent_id}:{amount}", ex=DAY_TTL)
+
+    async def _reserved_amount(self, agent_id: str, request_id: str) -> int:
+        raw = await self._redis.getdel(f"aegis:resv:{request_id}")
+        if not raw:
+            return 0
+        owner, amount = raw.split(":", 1)
+        if owner != agent_id:
+            return 0
+        return int(amount)
+
+    async def settle(self, agent_id: str, request_id: str, actual_cents: int) -> int:
+        reserved = await self._reserved_amount(agent_id, request_id)
+        refund = max(reserved - max(actual_cents, 0), 0)
+        if refund:
+            sk, fk, *_ = self._k(agent_id)
+            await self._refund(keys=[sk, fk], args=[refund])
+        return refund
+
+    async def release(self, agent_id: str, request_id: str) -> int:
+        reserved = await self._reserved_amount(agent_id, request_id)
+        if reserved:
+            sk, fk, *_ = self._k(agent_id)
+            await self._refund(keys=[sk, fk], args=[reserved])
+        return reserved
+
     async def record_outcome(self, agent_id: str, allowed: bool) -> None:
         d = day_key()
         pipe = self._redis.pipeline()
@@ -420,14 +514,16 @@ class RedisStateStore(StateStore):
                 await self._redis.delete(*keys)
 
 
-async def open_state_store(redis_url: str | None) -> StateStore:
-    """Prefer Redis when configured; fall back to in-process rather than fail."""
+async def open_state_store(redis_url: str | None, *, fail_closed: bool = False) -> StateStore:
+    """Prefer Redis when configured. Fail closed if required but unreachable."""
     if redis_url:
         store = RedisStateStore(redis_url)
         try:
             await store.connect()
             return store
-        except Exception as exc:  # pragma: no cover - depends on environment
+        except Exception as exc:
+            if fail_closed:
+                raise RuntimeError(f"Redis required but unavailable: {exc}") from exc
             print(f"[aegis] Redis unavailable ({exc}); using in-process state store")
     store = MemoryStateStore()
     await store.connect()

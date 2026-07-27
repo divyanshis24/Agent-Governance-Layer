@@ -1,4 +1,4 @@
-# Agent Governance Layer permission model in Rego — mirrors aegis/policy/rules.py.
+# Aegis permission model in Rego — mirrors aegis/policy/rules.py.
 #
 # Load into an OPA sidecar and set POLICY_ENGINE=opa to route the permission
 # gate here instead of the in-house evaluator:
