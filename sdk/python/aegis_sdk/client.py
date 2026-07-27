@@ -1,4 +1,5 @@
-"""Aegis SDK — the one-import way to put an agent behind the checkpoint.
+"""Agent Governance Layer SDK — the one-import way to put an agent behind
+the checkpoint.
 
 SDK mode (ask, then act)::
 
@@ -9,7 +10,7 @@ SDK mode (ask, then act)::
     if decision.allowed:
         book_the_flight()
 
-Proxy mode (Aegis makes the call itself, so the agent never touches the money)::
+Proxy mode (the layer makes the call itself, so the agent never touches money)::
 
     result = await aegis.execute("issue_refund", amount_cents=25_00,
                                  counterparty="cardmember account")
@@ -145,7 +146,7 @@ class AegisClient:
         return decision
 
     async def execute(self, action: str, **kw: Any) -> dict:
-        """Proxy mode: authorize and, if allowed, let Aegis make the downstream call."""
+        """Proxy mode: authorize and, if allowed, let the layer make the downstream call."""
         try:
             resp = await self._client.post("/v1/proxy", json=self._payload(action, **kw))
             resp.raise_for_status()

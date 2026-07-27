@@ -1,4 +1,4 @@
-"""Proxy mode: Aegis makes the downstream call, so nothing bypasses the checkpoint."""
+"""Proxy mode: the layer makes the downstream call, so nothing bypasses the checkpoint."""
 
 from __future__ import annotations
 

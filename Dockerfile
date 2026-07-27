@@ -1,4 +1,4 @@
-# Build the console, then serve it from the control plane on one port.
+# Agent Governance Layer — build the console, then serve it from the control plane.
 FROM node:20-alpine AS console
 WORKDIR /console
 COPY frontend/package.json frontend/package-lock.json* ./

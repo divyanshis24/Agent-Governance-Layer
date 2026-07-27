@@ -1,6 +1,6 @@
 """Runtime configuration.
 
-Aegis runs in two modes with the same code path:
+The Agent Governance Layer runs in two modes with the same code path:
 
   * zero-infra (default) — in-process state store + SQLite. One command, no daemons.
   * production          — set REDIS_URL and/or DATABASE_URL and the same interfaces

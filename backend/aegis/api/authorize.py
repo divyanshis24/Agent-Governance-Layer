@@ -1,7 +1,7 @@
 """The two ways an agent integrates.
 
   * POST /v1/authorize — SDK mode. The agent asks first, then acts.
-  * POST /v1/proxy     — proxy mode. Aegis makes the downstream call itself, so
+  * POST /v1/proxy     — proxy mode. The layer makes the downstream call, so
                          the agent never holds a path to the money. This is the
                          mode that turns "should not bypass" into "cannot".
 """
@@ -43,8 +43,8 @@ async def proxy(request: AuthorizeRequest, control=Depends(get_control)) -> dict
     result = await CoreBanking.execute(request)
 
     # Mask on the way *out*, not just on what the request declared. A response
-    # can carry PAN/SSN the agent never asked for, and in proxy mode Aegis is
-    # the last thing that touches the payload before the agent sees it.
+    # can carry PAN/SSN the agent never asked for, and in proxy mode the gateway
+    # is the last thing that touches the payload before the agent sees it.
     policy = control.gateway.policy(request.agent_id)
     if (policy and policy.guardrails.mask_pan_ssn) or decision.obligations.get("mask_fields"):
         result = _apply_masking(result)

@@ -1,6 +1,6 @@
 """The in-house rules evaluator — the deny-by-default permission model.
 
-Small on purpose: this is the fallback that guarantees Aegis has no hard
+Small on purpose: this is the fallback that guarantees the layer has no hard
 dependency on an external policy engine. It answers one question — does this
 agent's permission set admit this action, on this resource, over this data? —
 and leaves spend, guardrails and human approval to the enforcement stages.

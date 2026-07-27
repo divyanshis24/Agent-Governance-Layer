@@ -2,7 +2,7 @@
 
 These stand in for the real servicing / travel / disputes / benefits agents.
 They do not decide anything; they attempt actions, exactly as a real agent
-would, and Aegis decides. The mix is deliberately imperfect: most attempts are
+would, and the governance layer decides. The mix is deliberately imperfect: most attempts are
 routine, and a steady minority are over cap, out of scope, injected, sanctioned
 or high-value, so the console shows every decision type in normal operation.
 """
@@ -75,7 +75,7 @@ ROUTINE: list[Scenario] = [
     Scenario("collections_agent", "read_field", 2, resource="collections.status", fields=["collections.status"]),
 ]
 
-# --- the attempts Aegis exists to stop -------------------------------------
+# --- the attempts the governance layer exists to stop -----------------------
 VIOLATIONS: list[Scenario] = [
     Scenario("benefits_engine", "read_field", 2.0, resource="cardmember.SSN", fields=["cardmember.SSN"],
              note="data scope"),

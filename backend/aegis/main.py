@@ -1,4 +1,4 @@
-"""Aegis control plane — application entrypoint.
+"""Agent Governance Layer — control plane entrypoint.
 
     uvicorn aegis.main:app --reload
 
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     app.state.control = control
     stats = await control.stats()
     print(
-        f"[aegis] control plane up · policy engine={stats['policy_engine']} "
+        f"[agl] control plane up · policy engine={stats['policy_engine']} "
         f"state={stats['state_backend']} db={stats['db_backend']} "
         f"agents={stats['agents_total']} audit_height={stats['audit_height']}"
     )
@@ -41,8 +41,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Aegis",
-    description="Governance layer for financial AI agents — the mandatory checkpoint between every agent and the money, data, or tools it wants to touch.",
+    title="Agent Governance Layer",
+    description="The mandatory checkpoint between every agent and the money, data, or tools it wants to touch.",
     version="0.1.0",
     lifespan=lifespan,
 )

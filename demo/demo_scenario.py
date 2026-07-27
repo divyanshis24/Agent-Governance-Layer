@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The five-beat demo, run against a live Aegis control plane.
+"""The five-beat demo, run against a live Agent Governance Layer control plane.
 
     python demo/demo_scenario.py            # narrated, paced for a walkthrough
     python demo/demo_scenario.py --fast     # no pauses
@@ -55,14 +55,14 @@ async def main(fast: bool) -> int:
         try:
             await admin.get("/health")
         except Exception:
-            print(f"{RED}Aegis is not running at {BASE}. Start it with ./run.sh{RESET}")
+            print(f"{RED}Agent Governance Layer is not running at {BASE}. Start it with ./run.sh{RESET}")
             return 1
 
         # A clean slate for the fleet controls the demo touches.
         await admin.post("/v1/fleet/resume")
         await admin.post("/v1/agents/onboarding_bot/revoke", json={"reason": "anomalous credit-limit raise pattern"})
 
-        print(f"\n{BOLD}AEGIS — governance layer for financial AI agents{RESET}")
+        print(f"\n{BOLD}AGENT GOVERNANCE LAYER — safety infrastructure for financial AI agents{RESET}")
         print(f"{DIM}Five beats. Every one of them a real decision, logged and provable.{RESET}")
 
         svc = AegisClient(BASE, agent_id="svc_agent")

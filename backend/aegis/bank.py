@@ -1,11 +1,11 @@
 """Simulated core banking and external tools.
 
 Stands in for money movement, card systems, customer data and partner APIs.
-Nothing here is real, and that is the point: Aegis makes *real* decisions over
-synthetic systems, so the governance layer is what is being demonstrated.
+Nothing here is real, and that is the point: the layer makes *real* decisions
+over synthetic systems, so the governance is what is being demonstrated.
 
 In production these are the systems that sit behind the gateway; in proxy mode
-Aegis is the only caller, which is what makes the checkpoint unbypassable.
+the gateway is the only caller, which is what makes the checkpoint unbypassable.
 """
 
 from __future__ import annotations
