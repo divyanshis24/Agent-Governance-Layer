@@ -436,7 +436,7 @@ async def open_repository(url: str, *, fail_closed: bool = False) -> Repository:
             raise
         if fail_closed:
             raise RuntimeError(f"Database required but unavailable: {exc}") from exc
-        print(f"[aegis] {url.split('://')[0]} unavailable ({exc}); falling back to SQLite")
+        print(f"[agl] {url.split('://')[0]} unavailable ({exc}); falling back to SQLite")
         from ..config import BASE_DIR
 
-        return await Repository(f"sqlite:///{BASE_DIR / 'data' / 'aegis.db'}").connect()
+        return await Repository(f"sqlite:///{BASE_DIR / 'data' / 'agl.db'}").connect()

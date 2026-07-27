@@ -1,7 +1,7 @@
 [project]
-name = "aegis"
+name = "agl"
 version = "0.1.0"
-description = "Aegis — governance layer for financial AI agents"
+description = "Agent Governance Layer — safety infrastructure for financial AI agents"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]

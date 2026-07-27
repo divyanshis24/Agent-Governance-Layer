@@ -393,40 +393,40 @@ class RedisStateStore(StateStore):
     def _k(agent_id: str) -> tuple[str, str, str, str]:
         d, m = day_key(), minute_bucket()
         return (
-            f"aegis:spend:{agent_id}:{d}",
-            f"aegis:spend:_fleet:{d}",
-            f"aegis:rate:{agent_id}:{m}",
-            f"aegis:payrate:{agent_id}:{m}",
+            f"agl:spend:{agent_id}:{d}",
+            f"agl:spend:_fleet:{d}",
+            f"agl:rate:{agent_id}:{m}",
+            f"agl:payrate:{agent_id}:{m}",
         )
 
     async def get_halt(self) -> dict | None:
-        raw = await self._redis.hgetall("aegis:fleet:halt")
+        raw = await self._redis.hgetall("agl:fleet:halt")
         if not raw:
             return None
         return {"halted": True, "by": raw.get("by"), "reason": raw.get("reason"), "at": float(raw.get("at", 0))}
 
     async def set_halt(self, by: str, reason: str) -> dict:
         payload = {"by": by, "reason": reason, "at": str(time.time())}
-        await self._redis.hset("aegis:fleet:halt", mapping=payload)
+        await self._redis.hset("agl:fleet:halt", mapping=payload)
         return {"halted": True, **payload, "at": float(payload["at"])}
 
     async def clear_halt(self) -> None:
-        await self._redis.delete("aegis:fleet:halt")
+        await self._redis.delete("agl:fleet:halt")
 
     async def set_agent_status(self, agent_id: str, status: str) -> None:
-        await self._redis.hset("aegis:agent:status", agent_id, status)
+        await self._redis.hset("agl:agent:status", agent_id, status)
 
     async def get_agent_status(self, agent_id: str) -> str | None:
-        return await self._redis.hget("aegis:agent:status", agent_id)
+        return await self._redis.hget("agl:agent:status", agent_id)
 
     async def all_agent_status(self) -> dict[str, str]:
-        return await self._redis.hgetall("aegis:agent:status") or {}
+        return await self._redis.hgetall("agl:agent:status") or {}
 
     async def counters(self, agent_id: str) -> Counters:
         sk, fk, rk, pk = self._k(agent_id)
         d = day_key()
         vals = await self._redis.mget(
-            sk, fk, rk, pk, f"aegis:actions:{agent_id}:{d}", f"aegis:blocked:{agent_id}:{d}", f"aegis:last:{agent_id}"
+            sk, fk, rk, pk, f"agl:actions:{agent_id}:{d}", f"agl:blocked:{agent_id}:{d}", f"agl:last:{agent_id}"
         )
         return Counters(
             spend_today_cents=int(vals[0] or 0),
@@ -461,10 +461,10 @@ class RedisStateStore(StateStore):
 
     async def _track_reservation(self, agent_id: str, request_id: str, amount: int) -> None:
         if amount > 0:
-            await self._redis.set(f"aegis:resv:{request_id}", f"{agent_id}:{amount}", ex=DAY_TTL)
+            await self._redis.set(f"agl:resv:{request_id}", f"{agent_id}:{amount}", ex=DAY_TTL)
 
     async def _reserved_amount(self, agent_id: str, request_id: str) -> int:
-        raw = await self._redis.getdel(f"aegis:resv:{request_id}")
+        raw = await self._redis.getdel(f"agl:resv:{request_id}")
         if not raw:
             return 0
         owner, amount = raw.split(":", 1)
@@ -490,25 +490,25 @@ class RedisStateStore(StateStore):
     async def record_outcome(self, agent_id: str, allowed: bool) -> None:
         d = day_key()
         pipe = self._redis.pipeline()
-        pipe.incr(f"aegis:actions:{agent_id}:{d}")
-        pipe.expire(f"aegis:actions:{agent_id}:{d}", DAY_TTL)
+        pipe.incr(f"agl:actions:{agent_id}:{d}")
+        pipe.expire(f"agl:actions:{agent_id}:{d}", DAY_TTL)
         if not allowed:
-            pipe.incr(f"aegis:blocked:{agent_id}:{d}")
-            pipe.expire(f"aegis:blocked:{agent_id}:{d}", DAY_TTL)
-        pipe.set(f"aegis:last:{agent_id}", time.time())
+            pipe.incr(f"agl:blocked:{agent_id}:{d}")
+            pipe.expire(f"agl:blocked:{agent_id}:{d}", DAY_TTL)
+        pipe.set(f"agl:last:{agent_id}", time.time())
         await pipe.execute()
 
     async def fleet_spend_today(self) -> int:
-        return int(await self._redis.get(f"aegis:spend:_fleet:{day_key()}") or 0)
+        return int(await self._redis.get(f"agl:spend:_fleet:{day_key()}") or 0)
 
     async def reset(self) -> None:
-        keys = [k async for k in self._redis.scan_iter("aegis:*")]
+        keys = [k async for k in self._redis.scan_iter("agl:*")]
         if keys:
             await self._redis.delete(*keys)
 
     async def reset_counters(self) -> None:
-        for pattern in ("aegis:spend:*", "aegis:rate:*", "aegis:payrate:*",
-                        "aegis:actions:*", "aegis:blocked:*", "aegis:last:*"):
+        for pattern in ("agl:spend:*", "agl:rate:*", "agl:payrate:*",
+                        "agl:actions:*", "agl:blocked:*", "agl:last:*"):
             keys = [k async for k in self._redis.scan_iter(pattern)]
             if keys:
                 await self._redis.delete(*keys)
@@ -524,7 +524,7 @@ async def open_state_store(redis_url: str | None, *, fail_closed: bool = False) 
         except Exception as exc:
             if fail_closed:
                 raise RuntimeError(f"Redis required but unavailable: {exc}") from exc
-            print(f"[aegis] Redis unavailable ({exc}); using in-process state store")
+            print(f"[agl] Redis unavailable ({exc}); using in-process state store")
     store = MemoryStateStore()
     await store.connect()
     return store

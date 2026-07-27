@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from aegis.audit import GENESIS_HASH
-from aegis.models import Decision
+from agl.audit import GENESIS_HASH
+from agl.models import Decision
 
 
 async def test_exactly_one_entry_per_action(control, ask):

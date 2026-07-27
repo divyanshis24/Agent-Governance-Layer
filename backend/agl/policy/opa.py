@@ -1,6 +1,6 @@
 """Open Policy Agent adapter.
 
-Set POLICY_ENGINE=opa (and run OPA as a sidecar with backend/policies/aegis.rego
+Set POLICY_ENGINE=opa (and run OPA as a sidecar with backend/policies/agl.rego
 loaded) to move permission decisions into Rego without touching the enforcement
 path. Because OPA runs as a sidecar, evaluation is a loopback call, not a
 network hop. If the sidecar is unreachable the engine fails closed for the

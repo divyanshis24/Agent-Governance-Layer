@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The eight-beat demo, run against a live Aegis control plane.
+"""The eight-beat demo, run against a live Agent Governance Layer control plane.
 
     python demo/demo_scenario.py            # narrated, paced for a walkthrough
     python demo/demo_scenario.py --fast     # no pauses
@@ -20,7 +20,7 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sdk" / "python"))
 
-from aegis_sdk import AegisClient  # noqa: E402
+from agl_sdk import AGLClient  # noqa: E402
 
 BASE = "http://localhost:8000"
 
@@ -55,27 +55,27 @@ async def main(fast: bool) -> int:
         try:
             await admin.get("/health")
         except Exception:
-            print(f"{RED}Aegis is not running at {BASE}. Start it with ./run.sh{RESET}")
+            print(f"{RED}AGL is not running at {BASE}. Start it with ./run.sh{RESET}")
             return 1
 
         # A clean slate for the fleet controls the demo touches.
         await admin.post("/v1/fleet/resume")
         await admin.post("/v1/agents/onboarding_bot/revoke", json={"reason": "anomalous credit-limit raise pattern"})
 
-        print(f"\n{BOLD}AEGIS — governance layer for financial AI agents{RESET}")
+        print(f"\n{BOLD}AGL — governance layer for financial AI agents{RESET}")
         print(f"{DIM}Eight beats. Every one of them a real decision, logged and provable.{RESET}")
 
-        svc = AegisClient(BASE, agent_id="svc_agent")
-        benefits = AegisClient(BASE, agent_id="benefits_engine")
-        travel = AegisClient(BASE, agent_id="travel_concierge")
-        onboarding = AegisClient(BASE, agent_id="onboarding_bot")
+        svc = AGLClient(BASE, agent_id="svc_agent")
+        benefits = AGLClient(BASE, agent_id="benefits_engine")
+        travel = AGLClient(BASE, agent_id="travel_concierge")
+        onboarding = AGLClient(BASE, agent_id="onboarding_bot")
 
         # ---------------------------------------------------------------
         await beat(1, "A $25 fee reversal is allowed and logged",
                    "Inside the servicing agent's permissions and well under its caps.")
         show(await svc.authorize("issue_refund", amount_cents=2_500, resource="txn #8841",
                                  counterparty="cardmember account"))
-        print(f"  {DIM}same reversal via proxy mode — Aegis calls the bank, not the agent:{RESET}")
+        print(f"  {DIM}same reversal via proxy mode — AGL calls the bank, not the agent:{RESET}")
         proxy = await svc.execute(
             "issue_refund",
             amount_cents=2_500,

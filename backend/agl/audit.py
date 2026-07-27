@@ -92,7 +92,7 @@ class AuditChain:
             self._seq = int(head["seq"])
             self._head = head["hash"]
         if self.async_writes:
-            self._task = asyncio.create_task(self._writer(), name="aegis-audit-writer")
+            self._task = asyncio.create_task(self._writer(), name="agl-audit-writer")
 
     async def stop(self) -> None:
         await self.drain()
@@ -183,7 +183,7 @@ class AuditChain:
             try:
                 await self.repo.append_audit(entry)
             except Exception as exc:  # pragma: no cover - operational path
-                print(f"[aegis] audit write failed for seq={entry.seq}: {exc}")
+                print(f"[agl] audit write failed for seq={entry.seq}: {exc}")
             finally:
                 self._queue.task_done()
                 if self._queue.empty():

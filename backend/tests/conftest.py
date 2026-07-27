@@ -7,16 +7,16 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from aegis.config import Settings  # noqa: E402
-from aegis.control import ControlPlane  # noqa: E402
-from aegis.models import ActionContext, AuthorizeRequest  # noqa: E402
+from agl.config import Settings  # noqa: E402
+from agl.control import ControlPlane  # noqa: E402
+from agl.models import ActionContext, AuthorizeRequest  # noqa: E402
 
 
 @pytest.fixture
 async def control(tmp_path):
     """A fully wired control plane on a throwaway database."""
     settings = Settings(
-        database_url=f"sqlite:///{tmp_path}/aegis-test.db",
+        database_url=f"sqlite:///{tmp_path}/agl-test.db",
         redis_url=None,
         seed_on_start=True,
         reset_on_start=True,

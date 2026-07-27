@@ -10,7 +10,7 @@ import asyncio
 
 import pytest
 
-from aegis.models import Decision, ReasonCode
+from agl.models import Decision, ReasonCode
 
 
 # --- gate 0: identity ------------------------------------------------------

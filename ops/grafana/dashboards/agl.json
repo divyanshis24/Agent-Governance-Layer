@@ -14,7 +14,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "sum by (decision) (aegis_decisions_total)",
+          "expr": "sum by (decision) (agl_decisions_total)",
           "legendFormat": "{{decision}}",
           "refId": "A"
         }
@@ -28,8 +28,8 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "id": 2,
       "targets": [
-        { "expr": "aegis_decision_latency_ms{quantile=\"0.5\"}", "legendFormat": "p50", "refId": "A" },
-        { "expr": "aegis_decision_latency_ms{quantile=\"0.99\"}", "legendFormat": "p99", "refId": "B" }
+        { "expr": "agl_decision_latency_ms{quantile=\"0.5\"}", "legendFormat": "p50", "refId": "A" },
+        { "expr": "agl_decision_latency_ms{quantile=\"0.99\"}", "legendFormat": "p99", "refId": "B" }
       ],
       "title": "Decision latency",
       "type": "timeseries"
@@ -37,10 +37,10 @@
   ],
   "refresh": "5s",
   "schemaVersion": 39,
-  "tags": ["aegis", "governance"],
+  "tags": ["agl", "governance"],
   "templating": { "list": [] },
   "time": { "from": "now-15m", "to": "now" },
-  "title": "Aegis Governance",
-  "uid": "aegis-governance",
+  "title": "Agent Governance Layer",
+  "uid": "agl-governance",
   "version": 1
 }

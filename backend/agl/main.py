@@ -1,6 +1,6 @@
-"""Aegis control plane — application entrypoint.
+"""AGL control plane — application entrypoint.
 
-    uvicorn aegis.main:app --reload
+    uvicorn agl.main:app --reload
 
 Serves the gateway, the control-plane APIs, the live stream, and (when the
 console has been built) the operator dashboard itself.
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     app.state.control = control
     stats = await control.stats()
     print(
-        f"[aegis] control plane up · policy engine={stats['policy_engine']} "
+        f"[agl] control plane up · policy engine={stats['policy_engine']} "
         f"state={stats['state_backend']} db={stats['db_backend']} "
         f"agents={stats['agents_total']} audit_height={stats['audit_height']}"
     )
@@ -41,8 +41,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Aegis",
-    description="Governance layer for financial AI agents — the mandatory checkpoint between every agent and the money, data, or tools it wants to touch.",
+    title="Agent Governance Layer",
+    description="The mandatory checkpoint between every agent and the money, data, or tools it wants to touch.",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -90,7 +90,7 @@ if CONSOLE_DIR.exists():
 def main() -> None:  # pragma: no cover - entrypoint
     import uvicorn
 
-    uvicorn.run("aegis.main:app", host=settings.host, port=settings.port, reload=False)
+    uvicorn.run("agl.main:app", host=settings.host, port=settings.port, reload=False)
 
 
 if __name__ == "__main__":  # pragma: no cover

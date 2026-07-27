@@ -1,4 +1,4 @@
-// Thin client for the Aegis control plane, plus the live-stream hook.
+// Thin client for the AGL control plane, plus the live-stream hook.
 import { useEffect, useRef, useState } from 'react'
 
 const OPERATOR = 'Risk Operator'

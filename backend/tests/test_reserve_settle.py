@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from aegis.models import ActionContext, AuthorizeRequest, Decision
+from agl.models import ActionContext, AuthorizeRequest, Decision
 
 
 async def test_authorize_settles_immediately(control, ask):

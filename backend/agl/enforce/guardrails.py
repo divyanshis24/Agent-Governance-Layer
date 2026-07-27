@@ -33,7 +33,7 @@ INJECTION_PATTERNS = [
     r"disregard\s+(your|all|the)\s+(instructions|policy|rules|guardrails)",
     r"you\s+are\s+now\s+(a|an|in)\s+\w+",
     r"(reveal|print|show|dump)\s+(your\s+)?(system\s+prompt|instructions|api[_\s]?key|secret)",
-    r"(bypass|disable|turn\s+off|override)\s+(the\s+)?(aegis|policy|guardrail|limit|cap|approval)",
+    r"(bypass|disable|turn\s+off|override)\s+(the\s+)?(agl|policy|guardrail|limit|cap|approval)",
     r"pretend\s+(you\s+are|to\s+be)\s+",
     r"developer\s+mode",
     r"do\s+anything\s+now",

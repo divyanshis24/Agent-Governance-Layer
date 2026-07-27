@@ -92,7 +92,7 @@ function Sidebar({ approvals }) {
   return (
     <aside className="w-[196px] shrink-0 bg-navy-900 border-r border-navy-800 flex flex-col">
       <div className="px-5 py-5">
-        <div className="text-xl font-bold tracking-tight">AEGIS</div>
+        <div className="text-xl font-bold tracking-tight">AGL</div>
         <div className="label mt-0.5">Control Plane</div>
       </div>
       <nav className="px-3 space-y-1 flex-1">

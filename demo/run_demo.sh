@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the Aegis demo with Python 3.11+ (macOS `python` is often 2.7).
+# Run the AGL demo with Python 3.11+ (macOS `python` is often 2.7).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

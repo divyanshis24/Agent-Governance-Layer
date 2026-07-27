@@ -20,4 +20,4 @@ COPY --from=console /console/dist ./frontend/dist
 
 WORKDIR /app/backend
 EXPOSE 8000
-CMD ["python", "-m", "uvicorn", "aegis.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "agl.main:app", "--host", "0.0.0.0", "--port", "8000"]

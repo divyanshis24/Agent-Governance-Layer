@@ -39,18 +39,18 @@ class Metrics:
     def render_prometheus(self) -> str:
         snap = self.snapshot()
         lines = [
-            "# HELP aegis_decisions_total Governance decisions by outcome",
-            "# TYPE aegis_decisions_total counter",
+            "# HELP agl_decisions_total Governance decisions by outcome",
+            "# TYPE agl_decisions_total counter",
         ]
         for decision, count in snap["decisions"].items():
-            lines.append(f'aegis_decisions_total{{decision="{decision}"}} {count}')
+            lines.append(f'agl_decisions_total{{decision="{decision}"}} {count}')
         lines.extend(
             [
-                "# HELP aegis_decision_latency_ms Governance decision latency",
-                "# TYPE aegis_decision_latency_ms summary",
-                f"aegis_decision_latency_ms{{quantile=\"0.5\"}} {snap['latency_p50_ms']}",
-                f"aegis_decision_latency_ms{{quantile=\"0.99\"}} {snap['latency_p99_ms']}",
-                f"aegis_decision_latency_ms_count {snap['latency_count']}",
+                "# HELP agl_decision_latency_ms Governance decision latency",
+                "# TYPE agl_decision_latency_ms summary",
+                f"agl_decision_latency_ms{{quantile=\"0.5\"}} {snap['latency_p50_ms']}",
+                f"agl_decision_latency_ms{{quantile=\"0.99\"}} {snap['latency_p99_ms']}",
+                f"agl_decision_latency_ms_count {snap['latency_count']}",
             ]
         )
         return "\n".join(lines) + "\n"

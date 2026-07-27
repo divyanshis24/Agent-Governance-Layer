@@ -6,7 +6,7 @@ import asyncio
 import statistics
 import time
 
-from aegis.models import Decision
+from agl.models import Decision
 
 
 async def test_decision_latency_p99_under_10ms(ask):

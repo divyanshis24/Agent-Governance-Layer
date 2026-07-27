@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Aegis — one command to bring up the control plane and the operator console.
+# Agent Governance Layer — one command to bring up the control plane and console.
 #
 #   ./run.sh          control plane + console (dev, hot reload)
 #   ./run.sh --build   build the console and serve everything from :8000
@@ -13,8 +13,8 @@ BACKEND_PORT="${PORT:-8000}"
 FRONTEND_PORT=5173
 MODE="${1:-dev}"
 
-info() { printf "\033[36m[aegis]\033[0m %s\n" "$1"; }
-fail() { printf "\033[31m[aegis]\033[0m %s\n" "$1"; exit 1; }
+info() { printf "\033[36m[agl]\033[0m %s\n" "$1"; }
+fail() { printf "\033[31m[agl]\033[0m %s\n" "$1"; exit 1; }
 
 command -v python3 >/dev/null || fail "python3 is required"
 command -v node >/dev/null || fail "node is required"
@@ -49,14 +49,14 @@ if [ "$MODE" = "--build" ]; then
   info "building the console…"
   (cd frontend && npm run build >/dev/null)
   info "starting the control plane on :${BACKEND_PORT} (console served from the same origin)"
-  (cd backend && exec .venv/bin/python -m uvicorn aegis.main:app --host 0.0.0.0 --port "${BACKEND_PORT}") &
+  (cd backend && exec .venv/bin/python -m uvicorn agl.main:app --host 0.0.0.0 --port "${BACKEND_PORT}") &
   API_PID=$!
   sleep 2
   info "console → http://localhost:${BACKEND_PORT}"
   wait $API_PID
 else
   info "starting the control plane on :${BACKEND_PORT}…"
-  (cd backend && exec .venv/bin/python -m uvicorn aegis.main:app --host 0.0.0.0 --port "${BACKEND_PORT}" --reload) &
+  (cd backend && exec .venv/bin/python -m uvicorn agl.main:app --host 0.0.0.0 --port "${BACKEND_PORT}" --reload) &
   API_PID=$!
 
   # Wait for the gateway to answer before bringing up the console.

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from aegis.config import Settings
-from aegis.control import ControlPlane
-from aegis.models import Decision, ReasonCode
+from agl.config import Settings
+from agl.control import ControlPlane
+from agl.models import Decision, ReasonCode
 
 
 async def test_chaos_policy_down_denies_every_request(ask, control):

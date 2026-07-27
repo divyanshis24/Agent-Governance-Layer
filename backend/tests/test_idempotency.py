@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from aegis.models import Decision, ReasonCode
+from agl.models import Decision, ReasonCode
 
 
 async def test_idempotent_retry_returns_cached_decision(ask):

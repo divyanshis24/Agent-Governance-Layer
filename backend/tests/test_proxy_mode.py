@@ -1,10 +1,10 @@
-"""Proxy mode: Aegis makes the downstream call, so nothing bypasses the checkpoint."""
+"""Proxy mode: AGL makes the downstream call, so nothing bypasses the checkpoint."""
 
 from __future__ import annotations
 
-from aegis.api.authorize import _apply_masking
-from aegis.bank import CUSTOMERS, CoreBanking
-from aegis.models import ActionContext, AuthorizeRequest
+from agl.api.authorize import _apply_masking
+from agl.bank import CUSTOMERS, CoreBanking
+from agl.models import ActionContext, AuthorizeRequest
 
 
 async def test_denied_action_never_reaches_the_bank(control):

@@ -1,12 +1,12 @@
-# Aegis permission model in Rego — mirrors aegis/policy/rules.py.
+# AGL permission model in Rego — mirrors agl/policy/rules.py.
 #
 # Load into an OPA sidecar and set POLICY_ENGINE=opa to route the permission
 # gate here instead of the in-house evaluator:
 #
-#   opa run --server --addr :8181 backend/policies/aegis.rego
+#   opa run --server --addr :8181 backend/policies/agl.rego
 #
-# The gateway posts {"input": {...}} to /v1/data/aegis/authz/decision.
-package aegis.authz
+# The gateway posts {"input": {...}} to /v1/data/agl/authz/decision.
+package agl.authz
 
 import rego.v1
 

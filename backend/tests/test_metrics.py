@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from aegis.metrics import metrics
-from aegis.models import Decision
+from agl.metrics import metrics
+from agl.models import Decision
 
 
 async def test_metrics_record_allow_and_block(ask):
@@ -24,5 +24,5 @@ async def test_metrics_record_allow_and_block(ask):
 
 def test_prometheus_render_includes_counters():
     text = metrics.render_prometheus()
-    assert "aegis_decisions_total" in text
-    assert "aegis_decision_latency_ms" in text
+    assert "agl_decisions_total" in text
+    assert "agl_decision_latency_ms" in text

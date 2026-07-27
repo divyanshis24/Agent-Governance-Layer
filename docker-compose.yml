@@ -19,13 +19,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: aegis
-      POSTGRES_PASSWORD: aegis
-      POSTGRES_DB: aegis
+      POSTGRES_USER: agl
+      POSTGRES_PASSWORD: agl
+      POSTGRES_DB: agl
     ports: ["5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aegis"]
+      test: ["CMD-SHELL", "pg_isready -U agl"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -34,17 +34,17 @@ services:
   # call rather than a network hop.
   opa:
     image: openpolicyagent/opa:latest
-    command: ["run", "--server", "--addr=0.0.0.0:8181", "/policies/aegis.rego"]
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "/policies/agl.rego"]
     volumes: ["./backend/policies:/policies:ro"]
     ports: ["8181:8181"]
 
-  aegis:
+  agl:
     build:
       context: .
       dockerfile: Dockerfile
     environment:
       REDIS_URL: redis://redis:6379/0
-      DATABASE_URL: postgresql://aegis:aegis@postgres:5432/aegis
+      DATABASE_URL: postgresql://agl:agl@postgres:5432/agl
       # Switch to `opa` to route the permission gate through the sidecar.
       POLICY_ENGINE: rules
       OPA_URL: http://opa:8181
@@ -63,13 +63,13 @@ services:
       - ./ops/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports: ["9090:9090"]
     depends_on:
-      - aegis
+      - agl
 
   grafana:
     image: grafana/grafana:11.4.0
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: aegis
+      GF_SECURITY_ADMIN_PASSWORD: agl
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro

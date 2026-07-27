@@ -1,22 +1,22 @@
-"""Aegis SDK — the one-import way to put an agent behind the checkpoint.
+"""Agent Governance Layer SDK — the one-import way to put an agent behind the checkpoint.
 
 SDK mode (ask, then act)::
 
-    aegis = AegisClient("http://localhost:8000", agent_id="travel_concierge")
+    agl = AGLClient("http://localhost:8000", agent_id="travel_concierge")
 
-    decision = await aegis.authorize("rebook_flight", amount_cents=180_00,
+    decision = await agl.authorize("rebook_flight", amount_cents=180_00,
                                      counterparty="delta air lines")
     if decision.allowed:
         book_the_flight()
 
-Proxy mode (Aegis makes the call itself, so the agent never touches the money)::
+Proxy mode (AGL makes the call itself, so the agent never touches the money)::
 
-    result = await aegis.execute("issue_refund", amount_cents=25_00,
+    result = await agl.execute("issue_refund", amount_cents=25_00,
                                  counterparty="cardmember account")
 
 Decorator form, for wrapping an existing tool::
 
-    @aegis.governed("issue_refund")
+    @agl.governed("issue_refund")
     async def issue_refund(amount_cents: int, **kw): ...
 """
 
@@ -29,11 +29,11 @@ from typing import Any, Callable
 import httpx
 
 
-class AegisError(RuntimeError):
+class AGLError(RuntimeError):
     """The control plane could not be reached."""
 
 
-class AegisDenied(RuntimeError):
+class AGLDenied(RuntimeError):
     """The action was not authorized. Carries the full decision for logging."""
 
     def __init__(self, decision: "Decision") -> None:
@@ -78,7 +78,7 @@ class Decision:
         )
 
 
-class AegisClient:
+class AGLClient:
     def __init__(
         self,
         base_url: str = "http://localhost:8000",
@@ -98,7 +98,7 @@ class AegisClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def __aenter__(self) -> "AegisClient":
+    async def __aenter__(self) -> "AGLClient":
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
@@ -134,25 +134,25 @@ class AegisClient:
             if self.fail_closed:
                 return Decision(decision="deny", reason=f"control plane unreachable: {exc}",
                                 reason_code="control_plane_unavailable")
-            raise AegisError(str(exc)) from exc
+            raise AGLError(str(exc)) from exc
         return Decision.from_payload(resp.json())
 
     async def require(self, action: str, **kw: Any) -> Decision:
-        """Like `authorize`, but raises `AegisDenied` on anything but allow."""
+        """Like `authorize`, but raises `AGLDenied` on anything but allow."""
         decision = await self.authorize(action, **kw)
         if not decision.allowed:
-            raise AegisDenied(decision)
+            raise AGLDenied(decision)
         return decision
 
     async def execute(self, action: str, **kw: Any) -> dict:
-        """Proxy mode: authorize and, if allowed, let Aegis make the downstream call."""
+        """Proxy mode: authorize and, if allowed, let AGL make the downstream call."""
         try:
             resp = await self._client.post("/v1/proxy", json=self._payload(action, **kw))
             resp.raise_for_status()
         except Exception as exc:
             if self.fail_closed:
                 return {"executed": False, "authorization": {"decision": "deny", "reason": str(exc)}, "result": None}
-            raise AegisError(str(exc)) from exc
+            raise AGLError(str(exc)) from exc
         return resp.json()
 
     async def approval_status(self, approval_id: str) -> dict:
@@ -173,7 +173,7 @@ class AegisClient:
                     counterparty=kwargs.get("counterparty"),
                 )
                 if not decision.allowed:
-                    raise AegisDenied(decision)
+                    raise AGLDenied(decision)
                 return await fn(*args, **kwargs)
 
             return wrapper

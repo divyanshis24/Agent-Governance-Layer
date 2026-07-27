@@ -1,6 +1,6 @@
 """Runtime configuration.
 
-Aegis runs in two modes with the same code path:
+The Agent Governance Layer (AGL) runs in two modes with the same code path:
 
   * zero-infra (default) — in-process state store + SQLite. One command, no daemons.
   * production          — set REDIS_URL and/or DATABASE_URL and the same interfaces
@@ -33,14 +33,14 @@ class Settings:
     redis_url: str | None = field(default_factory=lambda: os.getenv("REDIS_URL") or None)
     database_url: str = field(
         default_factory=lambda: os.getenv("DATABASE_URL")
-        or f"sqlite:///{BASE_DIR / 'data' / 'aegis.db'}"
+        or f"sqlite:///{BASE_DIR / 'data' / 'agl.db'}"
     )
 
     # --- policy engine -----------------------------------------------------
     policy_engine: str = field(default_factory=lambda: os.getenv("POLICY_ENGINE", "rules"))
     opa_url: str = field(default_factory=lambda: os.getenv("OPA_URL", "http://localhost:8181"))
     opa_decision_path: str = field(
-        default_factory=lambda: os.getenv("OPA_DECISION_PATH", "aegis/authz/decision")
+        default_factory=lambda: os.getenv("OPA_DECISION_PATH", "agl/authz/decision")
     )
 
     # --- fleet defaults ----------------------------------------------------

@@ -1,7 +1,7 @@
-# Aegis — Governance Layer for Financial AI Agents
+# Agent Governance Layer
 
 A working control plane that sits in the action path of every agent. Before any
-consequential action executes, the agent must get authorization from Aegis:
+consequential action executes, the agent must get authorization from AGL:
 the fleet must not be halted, the agent must not be revoked, the action must be
 in a deny-by-default permission set, it must fit inside spend and velocity
 limits, it must clear data, counterparty and AI-safety guardrails, and if it is
@@ -10,7 +10,7 @@ allow, deny, block, quarantine, escalate — is sealed into a hash-chained audit
 log.
 
 > **What is real here:** the decisions. Agents are stub agents and the banking
-> systems behind them are simulated, so Aegis governs real policy over synthetic
+> systems behind them are simulated, so AGL governs real policy over synthetic
 > data. No real money moves.
 
 ---
@@ -66,7 +66,7 @@ same thing is available as a button on the Audit Log screen.
 ## What is in the box
 
 ```
-backend/aegis/
+backend/agl/
   enforce/gateway.py    the PEP — the six gates, in order
   enforce/guardrails.py sanctions, injection, PII, exfiltration, masking
   policy/rules.py       the in-house deny-by-default evaluator
@@ -77,8 +77,8 @@ backend/aegis/
   control.py            operator actions and fleet views
   simulator.py          the stub fleet that generates traffic
 frontend/src/pages/     the six console screens
-sdk/python/aegis_sdk/   the client agents integrate with
-backend/policies/       aegis.rego — the same permission model in Rego
+sdk/python/agl_sdk/   the client agents integrate with
+backend/policies/       agl.rego — the same permission model in Rego
 ```
 
 ### The decision path
@@ -110,11 +110,11 @@ Two properties worth knowing:
 **SDK mode** — the agent asks, then acts:
 
 ```python
-from aegis_sdk import AegisClient
+from agl_sdk import AGLClient
 
-aegis = AegisClient("http://localhost:8000", agent_id="travel_concierge")
+agl = AGLClient("http://localhost:8000", agent_id="travel_concierge")
 
-decision = await aegis.authorize("rebook_flight", amount_cents=180_00,
+decision = await agl.authorize("rebook_flight", amount_cents=180_00,
                                  counterparty="delta air lines")
 if decision.allowed:
     book_the_flight()
@@ -122,11 +122,11 @@ else:
     log(decision.reason)          # "over per-transaction cap — $4,000.00 over $2,500.00 cap"
 ```
 
-**Proxy mode** — Aegis makes the downstream call itself, so the agent never
+**Proxy mode** — AGL makes the downstream call itself, so the agent never
 holds a path to the money. This is what turns "should not bypass" into "cannot":
 
 ```python
-result = await aegis.execute("issue_refund", amount_cents=25_00,
+result = await agl.execute("issue_refund", amount_cents=25_00,
                              counterparty="cardmember account")
 ```
 
@@ -145,7 +145,7 @@ The demo can simulate this with `POST /v1/simulator/chaos/policy-down`.
 
 **Observability** — `GET /metrics` exposes Prometheus counters and latency
 summaries; `GET /v1/metrics/summary` returns the same numbers as JSON.
-With Docker Compose, Grafana is on http://localhost:3000 (admin / aegis).
+With Docker Compose, Grafana is on http://localhost:3000 (admin / agl).
 
 ---
 
@@ -197,7 +197,7 @@ Everything runs with no configuration. Set these to scale it up:
 | `SEED_ON_START` | `true` | Seeds the six-agent demo fleet if none exists |
 
 The storage and policy layers sit behind interfaces and fall back rather than
-fail: if Redis or PostgreSQL is configured but unreachable, Aegis logs it and
+fail: if Redis or PostgreSQL is configured but unreachable, AGL logs it and
 continues on the in-process store, and the ~100-line in-house evaluator is
 always available if OPA is not.
 

@@ -72,7 +72,7 @@ async def export(control=Depends(get_control)) -> StreamingResponse:
     return StreamingResponse(
         iter([buffer.read()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=aegis-audit-log.csv"},
+        headers={"Content-Disposition": "attachment; filename=agl-audit-log.csv"},
     )
 
 
